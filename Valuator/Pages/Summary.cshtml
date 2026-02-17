@@ -1,6 +1,54 @@
 ﻿@page
 @model Valuator.Pages.SummaryModel
 @{
+    ViewData["Title"] = "Результат оценки";
 }
-<p>Оценка содержания: @Model.Rank</p>
-<p>Плагиат: @Model.Similarity</p>
+
+<div class="container mt-4">
+    <h2>Результат оценки текста</h2>
+    
+    <div class="card mt-3">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Исходный текст</h5>
+        </div>
+        <div class="card-body">
+            <p class="card-text">@Model.Text</p>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card text-white bg-info">
+                <div class="card-header">
+                    <h5 class="mb-0">Оценка содержания (Rank)</h5>
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">@Model.Rank.ToString("P1")</h2>
+                    <p class="card-text">
+                        Доля неалфавитных символов (цифры, знаки, пробелы и т.д.)
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card text-white @(Model.Similarity > 0 ? "bg-danger" : "bg-success")">
+                <div class="card-header">
+                    <h5 class="mb-0">Плагиат (Similarity)</h5>
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">@Model.Similarity</h2>
+                    <p class="card-text">
+                        @(Model.Similarity > 0 
+                            ? "⚠️ Текст уже встречался ранее!" 
+                            : "✅ Уникальный текст")
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a asp-page="/Index" class="btn btn-primary">Оценить другой текст</a>
+    </div>
+</div>
