@@ -17,7 +17,10 @@ public class Program
         builder.Services.AddScoped<ITextMetricsCalculator, TextMetricsCalculator>();
         builder.Services.AddScoped<ITextValuationService, TextValuationService>();
 
-        builder.Services.AddRazorPages();
+        builder.Services.AddRazorPages(options =>
+        {
+            options.Conventions.ConfigureFilter(new Microsoft.AspNetCore.Mvc.IgnoreAntiforgeryTokenAttribute());
+        });
 
         var app = builder.Build();
 
