@@ -16,6 +16,13 @@ public class Program
 
         var rabbitFactory = new ConnectionFactory { HostName = "valuator-rabbitmq" };
         var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
+        
+        using (var initChannel = await rabbitConnection.CreateChannelAsync())
+        {
+            await initChannel.ExchangeDeclareAsync("text.events", ExchangeType.Fanout, true);
+            await initChannel.ExchangeDeclareAsync("similarity.calculated", ExchangeType.Fanout, true);
+        }
+
         builder.Services.AddSingleton<IConnection>(rabbitConnection);
 
         builder.Services.AddScoped<IEvaluationStorage, RedisEvaluationStorage>();

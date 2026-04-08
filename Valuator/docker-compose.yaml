@@ -84,7 +84,19 @@ services:
       replicas: 2
     networks:
       - valuator-network
-
+      
+  events-logger:
+    build: 
+      context: ../EventsLogger 
+      dockerfile: Dockerfile 
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+    networks:
+      - valuator-network
+      
 networks:
   valuator-network:
     driver: bridge

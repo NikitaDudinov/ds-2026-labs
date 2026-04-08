@@ -1,9 +1,11 @@
 using System.Text;
+using System.Text.Json;
 using RabbitMQ.Client;
 
 namespace Valuator.Services;
 
 public record TextEvaluationResult(string Id, string Text, double? Rank, double Similarity);
+public record SimilarityCalculatedEvent(string Id, double Similarity);
 
 public interface ITextValuationService
 {
@@ -15,7 +17,8 @@ public class TextValuationService : ITextValuationService
 {
     private readonly IEvaluationStorage _storage;
     private readonly IConnection _rabbitConnection; 
-    private const string ExchangeName = "text.events"; 
+    private const string TaskExchange = "text.events"; 
+    private const string SimilarityEventExchange = "similarity.calculated";
 
     public TextValuationService(IEvaluationStorage storage, IConnection rabbitConnection)
     {
@@ -39,13 +42,14 @@ public class TextValuationService : ITextValuationService
 
         await using var channel = await _rabbitConnection.CreateChannelAsync();
 
-        await channel.ExchangeDeclareAsync(
-            exchange: ExchangeName, 
-            type: ExchangeType.Fanout, 
-            durable: true);
-        
+        var simEvent = new SimilarityCalculatedEvent(id, similarity);
         await channel.BasicPublishAsync(
-            exchange: ExchangeName, 
+            exchange: SimilarityEventExchange, 
+            routingKey: "", 
+            body: Encoding.UTF8.GetBytes(JsonSerializer.Serialize(simEvent)));
+ 
+        await channel.BasicPublishAsync(
+            exchange: TaskExchange, 
             routingKey: "", 
             body: Encoding.UTF8.GetBytes(id));
 
