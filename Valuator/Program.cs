@@ -1,3 +1,4 @@
+using RabbitMQ.Client;
 using StackExchange.Redis;
 using Valuator.Services;
 
@@ -5,7 +6,7 @@ namespace Valuator;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
@@ -13,8 +14,11 @@ public class Program
         var redis = ConnectionMultiplexer.Connect(redisConnection);
         builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
 
+        var rabbitFactory = new ConnectionFactory { HostName = "valuator-rabbitmq" };
+        var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
+        builder.Services.AddSingleton<IConnection>(rabbitConnection);
+
         builder.Services.AddScoped<IEvaluationStorage, RedisEvaluationStorage>();
-        builder.Services.AddScoped<ITextMetricsCalculator, TextMetricsCalculator>();
         builder.Services.AddScoped<ITextValuationService, TextValuationService>();
 
         builder.Services.AddRazorPages(options =>

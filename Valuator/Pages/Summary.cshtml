@@ -23,10 +23,22 @@
                     <h5 class="mb-0">Оценка содержания (Rank)</h5>
                 </div>
                 <div class="card-body">
-                    <h2 class="card-title">@Model.Rank.ToString("P1")</h2>
-                    <p class="card-text">
-                        Доля неалфавитных символов (цифры, знаки, пробелы и т.д.)
-                    </p>
+                    @if (Model.Rank.HasValue)
+                    {
+                        <h2 class="card-title">@Model.Rank.Value.ToString("P1")</h2>
+                        <p class="card-text">
+                            Доля неалфавитных символов (цифры, знаки, пробелы и т.д.)
+                        </p>
+                    }
+                    else
+                    {
+                        <h4 class="card-title text-warning mt-2 mb-3">
+                            <i class="bi bi-hourglass-split"></i> Оценка содержания не завершена
+                        </h4>
+                        <p class="card-text">
+                            Процесс вычисления идет в фоне. Обновите страницу через пару секунд.
+                        </p>
+                    }
                 </div>
             </div>
         </div>

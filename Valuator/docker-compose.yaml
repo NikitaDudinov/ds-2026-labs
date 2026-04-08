@@ -57,6 +57,34 @@ services:
     networks:
       - valuator-network
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: valuator-rabbitmq
+    ports:
+      - "5672:5672" 
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - valuator-network
+  
+  rank-calculator:
+    build: 
+      context: ../RankCalculator
+      dockerfile: Dockerfile
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+    networks:
+      - valuator-network
+
 networks:
   valuator-network:
     driver: bridge

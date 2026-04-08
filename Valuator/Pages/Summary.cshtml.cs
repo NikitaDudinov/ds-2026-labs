@@ -14,7 +14,7 @@ public class SummaryModel : PageModel
     }
 
     public string Text { get; set; } = string.Empty;
-    public double Rank { get; set; }
+    public double? Rank { get; set; } 
     public double Similarity { get; set; }
 
     public async Task<IActionResult> OnGetAsync(string id)
