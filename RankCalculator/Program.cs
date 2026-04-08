@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using StackExchange.Redis;
@@ -9,6 +10,7 @@ class Program
 {
     private const string ExchangeName = "text.events";
     private const string QueueName = "valuator.processing.rank";
+    private const string RankCalculatedExchange = "rank.calculated";
 
     public static async Task Main(string[] args)
     {
@@ -22,6 +24,8 @@ class Program
         await using var channel = await connection.CreateChannelAsync();
 
         await channel.ExchangeDeclareAsync(exchange: ExchangeName, type: ExchangeType.Fanout, durable: true);
+        await channel.ExchangeDeclareAsync(exchange: RankCalculatedExchange, type: ExchangeType.Fanout, durable: true);
+        
         await channel.QueueDeclareAsync(queue: QueueName, durable: true, exclusive: false, autoDelete: false);
         await channel.QueueBindAsync(queue: QueueName, exchange: ExchangeName, routingKey: "");
         await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
@@ -42,7 +46,20 @@ class Program
                     double rank = CalculateRank(text);
                     string rankKey = $"RANK-{id}";
                     await db.StringSetAsync(rankKey, rank);
+                    
                     Console.WriteLine($"Calculated and saved Rank: {rank} for ID: {id}");
+
+                    var rankEvent = new RankCalculatedEvent(id, rank);
+          
+                    var jsonMessage = JsonSerializer.Serialize(rankEvent);
+                    var body = Encoding.UTF8.GetBytes(jsonMessage);
+
+                    await channel.BasicPublishAsync(
+                        exchange: RankCalculatedExchange, 
+                        routingKey: "", 
+                        body: body);
+                    
+                    Console.WriteLine($"[!] Event RankCalculated published for ID: {id}");
                 }
 
                 await channel.BasicAckAsync(eventArgs.DeliveryTag, false);
@@ -63,6 +80,8 @@ class Program
     {
         if (string.IsNullOrEmpty(text)) return 0.0;
         double nonLetters = text.Count(c => !char.IsLetter(c));
-        return nonLetters / text.Length;
+        return (double)nonLetters / text.Length;
     }
 }
+
+public record RankCalculatedEvent(string Id, double Rank);
