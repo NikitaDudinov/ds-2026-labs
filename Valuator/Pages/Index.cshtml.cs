@@ -19,17 +19,18 @@ public class IndexModel : PageModel
 
     public void OnGet() { }
 
-    public async Task<IActionResult> OnPostAsync(string text)
+    public async Task<IActionResult> OnPostAsync(string text, string country)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(country))
         {
+            ModelState.AddModelError(string.Empty, "Заполните все поля");
             return Page();
         }
 
         try
         {
-            _logger.LogDebug("Evaluating text: {Text}", text);
-            string id = await _valuationService.EvaluateAsync(text);
+            _logger.LogDebug("Evaluating text: {Text} for country: {Country}", text, country);
+            string id = await _valuationService.EvaluateAsync(text, country);
             return RedirectToPage("Summary", new { id });
         }
         catch (Exception ex)

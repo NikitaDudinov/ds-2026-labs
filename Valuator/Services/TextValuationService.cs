@@ -9,15 +9,15 @@ public record SimilarityCalculatedEvent(string Id, double Similarity);
 
 public interface ITextValuationService
 {
-    Task<string> EvaluateAsync(string text);
+    Task<string> EvaluateAsync(string text, string country);
     Task<TextEvaluationResult?> GetResultAsync(string id);
 }
 
 public class TextValuationService : ITextValuationService
 {
     private readonly IEvaluationStorage _storage;
-    private readonly IConnection _rabbitConnection; 
-    private const string TaskExchange = "calculate.text.rank"; 
+    private readonly IConnection _rabbitConnection;
+    private const string TaskExchange = "calculate.text.rank";
     private const string SimilarityEventExchange = "similarity.calculated";
 
     public TextValuationService(IEvaluationStorage storage, IConnection rabbitConnection)
@@ -26,18 +26,18 @@ public class TextValuationService : ITextValuationService
         _rabbitConnection = rabbitConnection;
     }
 
-    public async Task<string> EvaluateAsync(string text)
+    public async Task<string> EvaluateAsync(string text, string country)
     {
         string id = Guid.NewGuid().ToString();
 
-        bool isUnique = await _storage.IsTextUniqueAsync(text);
+        bool isUnique = await _storage.IsTextUniqueAsync(text, country);
         double similarity = isUnique ? 0.0 : 1.0;
 
-        await _storage.SaveTextAsync(id, text);
-        await _storage.SaveSimilarityAsync(id, similarity);
+        await _storage.SaveTextAsync(id, text, country);
+        await _storage.SaveSimilarityAsync(id, similarity, country);
         if (isUnique)
         {
-            await _storage.AddToUniqueSetAsync(text);
+            await _storage.AddToUniqueSetAsync(text, country);
         }
 
         await using var channel = await _rabbitConnection.CreateChannelAsync();

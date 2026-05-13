@@ -18,11 +18,20 @@ class Program
     public static async Task Main(string[] args)
     {
         Console.WriteLine("RankCalculator Worker started");
-
         HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("apikey", "my_super_secret_api_key");
 
-        var redis = await ConnectionMultiplexer.ConnectAsync("valuator-redis:6379");
-        var db = redis.GetDatabase();
+        var mainDb = await ConnectionMultiplexer.ConnectAsync(Environment.GetEnvironmentVariable("DB_MAIN") ?? "localhost:6379");
+        var ruDb = await ConnectionMultiplexer.ConnectAsync(Environment.GetEnvironmentVariable("DB_RU") ?? "localhost:6379");
+        var euDb = await ConnectionMultiplexer.ConnectAsync(Environment.GetEnvironmentVariable("DB_EU") ?? "localhost:6379");
+        var asiaDb = await ConnectionMultiplexer.ConnectAsync(Environment.GetEnvironmentVariable("DB_ASIA") ?? "localhost:6379");
+
+        var dbMain = mainDb.GetDatabase();
+        var dbs = new Dictionary<string, IDatabase>
+        {
+            { "RU", ruDb.GetDatabase() },
+            { "EU", euDb.GetDatabase() },
+            { "ASIA", asiaDb.GetDatabase() }
+        };
 
         var factory = new ConnectionFactory { HostName = "valuator-rabbitmq" };
         await using var connection = await factory.CreateConnectionAsync();
@@ -30,7 +39,7 @@ class Program
 
         await channel.ExchangeDeclareAsync(exchange: ExchangeName, type: ExchangeType.Fanout, durable: true);
         await channel.ExchangeDeclareAsync(exchange: RankCalculatedExchange, type: ExchangeType.Fanout, durable: true);
-        
+
         await channel.QueueDeclareAsync(queue: QueueName, durable: true, exclusive: false, autoDelete: false);
         await channel.QueueBindAsync(queue: QueueName, exchange: ExchangeName, routingKey: "");
         await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
@@ -44,26 +53,31 @@ class Program
                 Console.WriteLine($"Received task for ID: {id}");
 
                 var delay = TimeSpan.FromSeconds(new Random().Next(3, 15));
-                Console.WriteLine($"Processing will take {delay.TotalSeconds} seconds...");
                 await Task.Delay(delay);
 
+                var regionRedisVal = await dbMain.StringGetAsync($"SHARD-{id}");
+                string region = regionRedisVal.ToString();
+
+                Console.WriteLine($"LOOKUP: {id}, {region}");
+
+                if (!dbs.TryGetValue(region, out var shardDb))
+                {
+                    throw new Exception($"Unknown shard region: {region}");
+                }
+
                 string textKey = $"TEXT-{id}";
-                string? text = await db.StringGetAsync(textKey);
+                string? text = await shardDb.StringGetAsync(textKey);
 
                 if (!string.IsNullOrEmpty(text))
                 {
                     double rank = CalculateRank(text);
                     string rankKey = $"RANK-{id}";
-                    await db.StringSetAsync(rankKey, rank);
-                    
-                    Console.WriteLine($"Calculated and saved Rank: {rank} for ID: {id}");
+                    await shardDb.StringSetAsync(rankKey, rank);
+                    Console.WriteLine($"Calculated and saved Rank: {rank} for ID: {id} in shard {region}");
 
                     var rankEvent = new RankCalculatedEvent(id, rank);
                     var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(rankEvent));
-                    await channel.BasicPublishAsync(
-                        exchange: RankCalculatedExchange,
-                        routingKey: "",
-                        body: body);
+                    await channel.BasicPublishAsync(exchange: RankCalculatedExchange, routingKey: "", body: body);
 
                     await PublishToCentrifugoAsync(id, rank);
                 }

@@ -10,9 +10,7 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        string redisConnection = "valuator-redis:6379";
-        var redis = ConnectionMultiplexer.Connect(redisConnection);
-        builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+       builder.Services.AddSingleton<IEvaluationStorage, RedisEvaluationStorage>();
 
         var rabbitFactory = new ConnectionFactory { HostName = "valuator-rabbitmq" };
         var rabbitConnection = await rabbitFactory.CreateConnectionAsync();

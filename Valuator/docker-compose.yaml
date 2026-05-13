@@ -7,11 +7,17 @@ services:
     ports:
       - "5001:80"
     depends_on:
-      redis:
+      redis-main:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
+      - DB_MAIN=redis-main:6379
+      - DB_RU=redis-ru:6379
+      - DB_EU=redis-eu:6379
+      - DB_ASIA=redis-asia:6379
     networks:
       - valuator-network
 
@@ -21,11 +27,17 @@ services:
     ports:
       - "5002:80"
     depends_on:
-      redis:
+      redis-main:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
+      - DB_MAIN=redis-main:6379
+      - DB_RU=redis-ru:6379
+      - DB_EU=redis-eu:6379
+      - DB_ASIA=redis-asia:6379
     networks:
       - valuator-network
 
@@ -43,17 +55,47 @@ services:
     networks:
       - valuator-network
 
-  redis:
+  redis-main:
     image: redis:latest
-    container_name: valuator-redis
-    ports:
-      - "6379:6379"
+    container_name: valuator-redis-main
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 10s
+    networks:
+      - valuator-network
+
+  redis-ru:
+    image: redis:latest
+    container_name: valuator-redis-ru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - valuator-network
+
+  redis-eu:
+    image: redis:latest
+    container_name: valuator-redis-eu
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - valuator-network
+
+  redis-asia:
+    image: redis:latest
+    container_name: valuator-redis-asia
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - valuator-network
 
@@ -61,7 +103,7 @@ services:
     image: rabbitmq:3-management
     container_name: valuator-rabbitmq
     ports:
-      - "5672:5672" 
+      - "5672:5672"
       - "15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
@@ -70,25 +112,30 @@ services:
       retries: 10
     networks:
       - valuator-network
-  
+
   rank-calculator:
-    build: 
+    build:
       context: ../RankCalculator
       dockerfile: Dockerfile
     depends_on:
-      redis:
+      redis-main:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    environment:
+      - DB_MAIN=redis-main:6379
+      - DB_RU=redis-ru:6379
+      - DB_EU=redis-eu:6379
+      - DB_ASIA=redis-asia:6379
     deploy:
       replicas: 2
     networks:
       - valuator-network
-      
+
   events-logger:
-    build: 
-      context: ../EventsLogger 
-      dockerfile: Dockerfile 
+    build:
+      context: ../EventsLogger
+      dockerfile: Dockerfile
     depends_on:
       rabbitmq:
         condition: service_healthy
