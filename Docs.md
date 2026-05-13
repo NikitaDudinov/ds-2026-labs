@@ -1,32 +1,38 @@
 ```mermaid
 C4Container
-    title Диаграмма контейнеров (Container Diagram) - Valuator (Pub/Sub модель)
+    title Диаграмма контейнеров (Container Diagram) - Valuator (PA4: Pub/Sub & Events)
 
     Person(user, "Пользователь", "Пользователь сервиса")
     
     System_Boundary(system, "Система оценки текстов") {
         Container(lb, "Load Balancer", "Nginx", "Балансировщик нагрузки (порт 8080)")
         
-        Container(webapp, "Web App (Valuator)", "C#, ASP.NET Core", "Принимает текст, сохраняет в Redis, публикует ID в Exchange")
+        Container(webapp, "Web App (Valuator)", "C#, ASP.NET Core", "Считает Similarity, сохраняет в Redis, публикует задачи и события")
         
         Container_Boundary(rabbitmq, "Message Broker (RabbitMQ)") {
-            Component(exchange, "Exchange (text.events)", "Fanout", "Принимает события и тиражирует их по очередям")
-            Component(queue, "Queue (valuator.processing.rank)", "Queue", "Хранит задачи для расчета ранга")
+            Component(task_exchange, "Exchange (calculate.text.rank)", "Fanout", "Рассылает задачи на расчет")
+            Component(sim_exchange, "Exchange (similarity.calculated)", "Fanout", "Публикует события о схожести")
+            Component(rank_exchange, "Exchange (rank.calculated)", "Fanout", "Публикует события о ранге")
         }
 
-        Container(worker, "Rank Calculator (Worker)", "C#, .NET Console", "Слушает свою очередь и вычисляет Rank")
+        Container(worker, "Rank Calculator", "C#, .NET Console", "Вычисляет Rank, сохраняет в Redis, публикует событие готовности")
         
-        ContainerDb(db, "Database", "Redis", "Хранит тексты и результаты (Rank, Similarity)")
+        Container(logger, "Events Logger (x2)", "C#, .NET Console", "Подписывается на все события и выводит их в консоль")
+        
+        ContainerDb(db, "Database", "Redis", "Хранит тексты, Rank и Similarity")
     }
 
-    Rel(user, lb, "Отправляет запросы", "HTTP")
-    Rel(lb, webapp, "Проксирует трафик", "HTTP")
+    Rel(user, lb, "", "")
+    Rel(lb, webapp, "", "")
     
-    Rel(webapp, db, "Сохраняет текст, читает результаты", "Redis Protocol")
-    Rel(webapp, exchange, "Публикует ID в Exchange", "AMQP")
+    Rel(webapp, db, "", "")
+    Rel(webapp, task_exchange, "", "")
+    Rel(webapp, sim_exchange, "", "")
     
-    Rel(exchange, queue, "Копирует сообщение в очередь", "Internal")
+    Rel(worker, db, "", "")
+    Rel(worker, rank_exchange, "", "")
     
-    Rel(worker, queue, "Забирает задачи из очереди", "AMQP")
-    Rel(worker, db, "Читает текст, сохраняет Rank", "Redis Protocol")
+    Rel(sim_exchange, logger, "", "")
+    Rel(rank_exchange, logger, "", "")
+    Rel(task_exchange, worker, "", "")
 ```

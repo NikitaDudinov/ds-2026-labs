@@ -19,7 +19,7 @@ public class Program
         
         using (var initChannel = await rabbitConnection.CreateChannelAsync())
         {
-            await initChannel.ExchangeDeclareAsync("text.events", ExchangeType.Fanout, true);
+            await initChannel.ExchangeDeclareAsync("calculate.text.rank", ExchangeType.Fanout, true);
             await initChannel.ExchangeDeclareAsync("similarity.calculated", ExchangeType.Fanout, true);
         }
 

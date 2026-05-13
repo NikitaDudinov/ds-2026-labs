@@ -17,7 +17,7 @@ public class TextValuationService : ITextValuationService
 {
     private readonly IEvaluationStorage _storage;
     private readonly IConnection _rabbitConnection; 
-    private const string TaskExchange = "text.events"; 
+    private const string TaskExchange = "calculate.text.rank"; 
     private const string SimilarityEventExchange = "similarity.calculated";
 
     public TextValuationService(IEvaluationStorage storage, IConnection rabbitConnection)

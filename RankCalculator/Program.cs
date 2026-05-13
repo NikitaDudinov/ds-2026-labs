@@ -8,7 +8,7 @@ namespace RankCalculator;
 
 class Program
 {
-    private const string ExchangeName = "text.events";
+    private const string ExchangeName = "calculate.text.rank";
     private const string QueueName = "valuator.processing.rank";
     private const string RankCalculatedExchange = "rank.calculated";
 
