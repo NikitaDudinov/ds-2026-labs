@@ -1,38 +1,47 @@
 ```mermaid
 C4Container
-    title Диаграмма контейнеров (Container Diagram) - Valuator (PA4: Pub/Sub & Events)
+    title Диаграмма контейнеров (Container Diagram) - Valuator (PA5)
 
-    Person(user, "Пользователь", "Пользователь сервиса")
+    Person(user, "Пользователь", "Браузер")
     
     System_Boundary(system, "Система оценки текстов") {
-        Container(lb, "Load Balancer", "Nginx", "Балансировщик нагрузки (порт 8080)")
-        
-        Container(webapp, "Web App (Valuator)", "C#, ASP.NET Core", "Считает Similarity, сохраняет в Redis, публикует задачи и события")
-        
-        Container_Boundary(rabbitmq, "Message Broker (RabbitMQ)") {
-            Component(task_exchange, "Exchange (calculate.text.rank)", "Fanout", "Рассылает задачи на расчет")
-            Component(sim_exchange, "Exchange (similarity.calculated)", "Fanout", "Публикует события о схожести")
-            Component(rank_exchange, "Exchange (rank.calculated)", "Fanout", "Публикует события о ранге")
-        }
-
-        Container(worker, "Rank Calculator", "C#, .NET Console", "Вычисляет Rank, сохраняет в Redis, публикует событие готовности")
-        
-        Container(logger, "Events Logger (x2)", "C#, .NET Console", "Подписывается на все события и выводит их в консоль")
+        Container(lb, "Load Balancer", "Nginx", "Порт 8080")
+        Container(webapp, "Web App (Valuator)", "C#, ASP.NET Core", "Считает Similarity, выдает JWT")
+        Container(centrifugo, "WebSocket Server", "Centrifugo", "Рассылает UI-уведомления")
         
         ContainerDb(db, "Database", "Redis", "Хранит тексты, Rank и Similarity")
+        
+        Container(worker, "Rank Calculator", "C#, .NET", "Вычисляет Rank")
+        Container(logger, "Events Logger (x2)", "C#, .NET", "Логирует события")
+        
+        Container_Boundary(rabbitmq, "Message Broker (RabbitMQ)") {
+            Component(task_exchange, "calculate.text.rank", "Fanout")
+            Component(sim_exchange, "similarity.calculated", "Fanout")
+            Component(rank_exchange, "rank.calculated", "Fanout")
+        }
     }
 
-    Rel(user, lb, "", "")
-    Rel(lb, webapp, "", "")
+    %% Взаимодействие пользователя
+    Rel(user, lb, "HTTP")
+    Rel(user, centrifugo, "WebSocket")
     
-    Rel(webapp, db, "", "")
-    Rel(webapp, task_exchange, "", "")
-    Rel(webapp, sim_exchange, "", "")
+    Rel(lb, webapp, "HTTP")
     
-    Rel(worker, db, "", "")
-    Rel(worker, rank_exchange, "", "")
+    %% Работа с БД (группируем связи к БД)
+    Rel(webapp, db, "TCP")
+    Rel(worker, db, "TCP")
     
-    Rel(sim_exchange, logger, "", "")
-    Rel(rank_exchange, logger, "", "")
-    Rel(task_exchange, worker, "", "")
+    %% Задачи на расчет (поток: Web -> Rabbit -> Worker)
+    Rel(webapp, task_exchange, "Pub")
+    Rel(task_exchange, worker, "Sub")
+    
+    %% Уведомление фронтенда
+    Rel(worker, centrifugo, "HTTP POST")
+    
+    %% События (поток к логгерам)
+    Rel(webapp, sim_exchange, "Pub")
+    Rel(worker, rank_exchange, "Pub")
+    
+    Rel(sim_exchange, logger, "Sub")
+    Rel(rank_exchange, logger, "Sub")
 ```

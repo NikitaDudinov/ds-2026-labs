@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -11,11 +13,14 @@ class Program
     private const string ExchangeName = "calculate.text.rank";
     private const string QueueName = "valuator.processing.rank";
     private const string RankCalculatedExchange = "rank.calculated";
+    private static readonly HttpClient HttpClient = new();
 
     public static async Task Main(string[] args)
     {
         Console.WriteLine("RankCalculator Worker started");
-        
+
+        HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("apikey", "my_super_secret_api_key");
+
         var redis = await ConnectionMultiplexer.ConnectAsync("valuator-redis:6379");
         var db = redis.GetDatabase();
 
@@ -38,6 +43,10 @@ class Program
                 string id = Encoding.UTF8.GetString(eventArgs.Body.ToArray());
                 Console.WriteLine($"Received task for ID: {id}");
 
+                var delay = TimeSpan.FromSeconds(new Random().Next(3, 15));
+                Console.WriteLine($"Processing will take {delay.TotalSeconds} seconds...");
+                await Task.Delay(delay);
+
                 string textKey = $"TEXT-{id}";
                 string? text = await db.StringGetAsync(textKey);
 
@@ -50,16 +59,13 @@ class Program
                     Console.WriteLine($"Calculated and saved Rank: {rank} for ID: {id}");
 
                     var rankEvent = new RankCalculatedEvent(id, rank);
-          
-                    var jsonMessage = JsonSerializer.Serialize(rankEvent);
-                    var body = Encoding.UTF8.GetBytes(jsonMessage);
-
+                    var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(rankEvent));
                     await channel.BasicPublishAsync(
-                        exchange: RankCalculatedExchange, 
-                        routingKey: "", 
+                        exchange: RankCalculatedExchange,
+                        routingKey: "",
                         body: body);
-                    
-                    Console.WriteLine($"[!] Event RankCalculated published for ID: {id}");
+
+                    await PublishToCentrifugoAsync(id, rank);
                 }
 
                 await channel.BasicAckAsync(eventArgs.DeliveryTag, false);
@@ -72,7 +78,6 @@ class Program
         };
 
         await channel.BasicConsumeAsync(queue: QueueName, autoAck: false, consumer: consumer);
-
         await Task.Delay(Timeout.Infinite);
     }
 
@@ -81,6 +86,30 @@ class Program
         if (string.IsNullOrEmpty(text)) return 0.0;
         double nonLetters = text.Count(c => !char.IsLetter(c));
         return (double)nonLetters / text.Length;
+    }
+
+    private static async Task PublishToCentrifugoAsync(string id, double rank)
+    {
+        try
+        {
+            var payload = new
+            {
+                method = "publish",
+                @params = new
+                {
+                    channel = $"summary-{id}",
+                    data = new { id, rank }
+                }
+            };
+
+            var response = await HttpClient.PostAsJsonAsync("http://centrifugo:8000/api", payload);
+            response.EnsureSuccessStatusCode();
+            Console.WriteLine($"Successfully pushed update to browser for ID: {id}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to push update: {ex.Message}");
+        }
     }
 }
 

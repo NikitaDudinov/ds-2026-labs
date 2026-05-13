@@ -22,7 +22,7 @@
                 <div class="card-header">
                     <h5 class="mb-0">Оценка содержания (Rank)</h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body" id="rank-container">
                     @if (Model.Rank.HasValue)
                     {
                         <h2 class="card-title">@Model.Rank.Value.ToString("P1")</h2>
@@ -32,12 +32,10 @@
                     }
                     else
                     {
-                        <h4 class="card-title text-warning mt-2 mb-3">
-                            <i class="bi bi-hourglass-split"></i> Оценка содержания не завершена
-                        </h4>
-                        <p class="card-text">
-                            Процесс вычисления идет в фоне. Обновите страницу через пару секунд.
-                        </p>
+                        <div class="text-center mt-3">
+                            <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;"></div>
+                            <h5 class="mt-3">Вычисляем Rank...</h5>
+                        </div>
                     }
                 </div>
             </div>
@@ -64,3 +62,44 @@
         <a asp-page="/Index" class="btn btn-primary">Оценить другой текст</a>
     </div>
 </div>
+
+@if (!Model.Rank.HasValue)
+{
+    @section Scripts {
+        <script src="https://unpkg.com/centrifuge@5.0.1/dist/centrifuge.js"></script>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const textId = "@Model.TextId";
+                const token = "@Model.CentrifugoToken";
+
+                const centrifuge = new Centrifuge('ws://localhost:8001/connection/websocket', {
+                    token: token
+                });
+
+                const sub = centrifuge.newSubscription(`summary-${textId}`);
+
+                sub.on('publication', function (ctx) {
+                    const rankValue = ctx.data.rank;
+                    const formattedRank = (rankValue * 100).toFixed(1) + ' %';
+
+                    const container = document.getElementById('rank-container');
+                    container.style.opacity = 0;
+
+                    setTimeout(() => {
+                        container.innerHTML = `
+                            <h2 class="card-title">${formattedRank}</h2>
+                            <p class="card-text">Доля неалфавитных символов (цифры, знаки, пробелы и т.д.)</p>
+                        `;
+                        container.style.transition = "opacity 0.5s ease-in-out";
+                        container.style.opacity = 1;
+                    }, 300);
+                    centrifuge.disconnect();
+                });
+
+                sub.subscribe();
+                centrifuge.connect();
+            });
+        </script>
+    }
+}
