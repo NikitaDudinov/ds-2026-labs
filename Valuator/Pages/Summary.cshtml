@@ -1,6 +1,105 @@
 ﻿@page
 @model Valuator.Pages.SummaryModel
 @{
+    ViewData["Title"] = "Результат оценки";
 }
-<p>Оценка содержания: @Model.Rank</p>
-<p>Плагиат: @Model.Similarity</p>
+
+<div class="container mt-4">
+    <h2>Результат оценки текста</h2>
+    
+    <div class="card mt-3">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Исходный текст</h5>
+        </div>
+        <div class="card-body">
+            <p class="card-text">@Model.Text</p>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card text-white bg-info">
+                <div class="card-header">
+                    <h5 class="mb-0">Оценка содержания (Rank)</h5>
+                </div>
+                <div class="card-body" id="rank-container">
+                    @if (Model.Rank.HasValue)
+                    {
+                        <h2 class="card-title">@Model.Rank.Value.ToString("P1")</h2>
+                        <p class="card-text">
+                            Доля неалфавитных символов (цифры, знаки, пробелы и т.д.)
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="text-center mt-3">
+                            <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;"></div>
+                            <h5 class="mt-3">Вычисляем Rank...</h5>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card text-white @(Model.Similarity > 0 ? "bg-danger" : "bg-success")">
+                <div class="card-header">
+                    <h5 class="mb-0">Плагиат (Similarity)</h5>
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">@Model.Similarity</h2>
+                    <p class="card-text">
+                        @(Model.Similarity > 0 
+                            ? "⚠️ Текст уже встречался ранее!" 
+                            : "✅ Уникальный текст")
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a asp-page="/Index" class="btn btn-primary">Оценить другой текст</a>
+    </div>
+</div>
+
+@if (!Model.Rank.HasValue)
+{
+    @section Scripts {
+        <script src="https://unpkg.com/centrifuge@5.0.1/dist/centrifuge.js"></script>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const textId = "@Model.TextId";
+                const token = "@Model.CentrifugoToken";
+
+                const centrifuge = new Centrifuge('ws://localhost:8001/connection/websocket', {
+                    token: token
+                });
+
+                const sub = centrifuge.newSubscription(`summary-${textId}`);
+
+                sub.on('publication', function (ctx) {
+                    const rankValue = ctx.data.rank;
+                    const formattedRank = (rankValue * 100).toFixed(1) + ' %';
+
+                    const container = document.getElementById('rank-container');
+                    container.style.opacity = 0;
+
+                    setTimeout(() => {
+                        container.innerHTML = `
+                            <h2 class="card-title">${formattedRank}</h2>
+                            <p class="card-text">Доля неалфавитных символов (цифры, знаки, пробелы и т.д.)</p>
+                        `;
+                        container.style.transition = "opacity 0.5s ease-in-out";
+                        container.style.opacity = 1;
+                    }, 300);
+                    centrifuge.disconnect();
+                });
+
+                sub.subscribe();
+                centrifuge.connect();
+            });
+        </script>
+    }
+}

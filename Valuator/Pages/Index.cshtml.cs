@@ -1,37 +1,42 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Valuator.Services;
 
 namespace Valuator.Pages;
 
 public class IndexModel : PageModel
 {
     private readonly ILogger<IndexModel> _logger;
+    private readonly ITextValuationService _valuationService;
 
-    public IndexModel(ILogger<IndexModel> logger)
+    public IndexModel(
+        ILogger<IndexModel> logger,
+        ITextValuationService valuationService)
     {
         _logger = logger;
+        _valuationService = valuationService;
     }
 
-    public void OnGet()
+    public void OnGet() { }
+
+    public async Task<IActionResult> OnPostAsync(string text)
     {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return Page();
+        }
 
-    }
-
-    public IActionResult OnPost(string text)
-    {
-        _logger.LogDebug(text);
-
-        string id = Guid.NewGuid().ToString();
-
-        string textKey = "TEXT-" + id;
-        // TODO: (pa1) сохранить в БД (Redis) text по ключу textKey
-
-        string rankKey = "RANK-" + id;
-        // TODO: (pa1) посчитать rank и сохранить в БД (Redis) по ключу rankKey
-
-        string similarityKey = "SIMILARITY-" + id;
-        // TODO: (pa1) посчитать similarity и сохранить в БД (Redis) по ключу similarityKey
-
-        return Redirect($"summary?id={id}");
+        try
+        {
+            _logger.LogDebug("Evaluating text: {Text}", text);
+            string id = await _valuationService.EvaluateAsync(text);
+            return RedirectToPage("Summary", new { id });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error evaluating text");
+            ModelState.AddModelError(string.Empty, "Произошла ошибка при обработке текста");
+            return Page();
+        }
     }
 }
