@@ -14,6 +14,7 @@ public interface IEvaluationStorage
     Task<double?> GetSimilarityAsync(string id);
 
     Task SaveUserAsync(string username, string password);
+    Task<string?> GetUserPasswordAsync(string username);
     Task SaveAuthorAsync(string textId, string username);
     Task<string?> GetAuthorAsync(string textId);
     Task<bool> UserExistsAsync(string username);
@@ -118,6 +119,11 @@ public class RedisEvaluationStorage : IEvaluationStorage
     public async Task SaveUserAsync(string username, string password)
     {
         await _mainDb.StringSetAsync($"USER-{username}", password);
+    }
+
+    public async Task<string?> GetUserPasswordAsync(string username)
+    {
+        return await _mainDb.StringGetAsync($"USER-{username}");
     }
 
     public async Task SaveAuthorAsync(string textId, string username)
