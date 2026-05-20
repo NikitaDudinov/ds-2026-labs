@@ -9,8 +9,9 @@ public record SimilarityCalculatedEvent(string Id, double Similarity);
 
 public interface ITextValuationService
 {
-    Task<string> EvaluateAsync(string text, string country);
+    Task<string> EvaluateAsync(string text, string country, string username);
     Task<TextEvaluationResult?> GetResultAsync(string id);
+    Task<string?> GetAuthorAsync(string id);
 }
 
 public class TextValuationService : ITextValuationService
@@ -26,7 +27,7 @@ public class TextValuationService : ITextValuationService
         _rabbitConnection = rabbitConnection;
     }
 
-    public async Task<string> EvaluateAsync(string text, string country)
+public async Task<string> EvaluateAsync(string text, string country, string username)
     {
         string id = Guid.NewGuid().ToString();
 
@@ -35,6 +36,8 @@ public class TextValuationService : ITextValuationService
 
         await _storage.SaveTextAsync(id, text, country);
         await _storage.SaveSimilarityAsync(id, similarity, country);
+
+        await _storage.SaveAuthorAsync(id, username);
         if (isUnique)
         {
             await _storage.AddToUniqueSetAsync(text, country);
@@ -65,5 +68,10 @@ public class TextValuationService : ITextValuationService
         if (text == null || similarity == null) return null;
 
         return new TextEvaluationResult(id, text, rank, similarity.Value);
+    }
+
+    public async Task<string?> GetAuthorAsync(string id)
+    {
+        return await _storage.GetAuthorAsync(id);
     }
 }

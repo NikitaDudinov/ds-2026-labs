@@ -5,9 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.IdentityModel.Tokens;
 using Valuator.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Valuator.Pages;
 
+[Authorize]
 public class SummaryModel : PageModel
 {
     private readonly ITextValuationService _valuationService;
@@ -26,6 +28,12 @@ public class SummaryModel : PageModel
     public async Task<IActionResult> OnGetAsync(string id)
     {
         if (string.IsNullOrEmpty(id)) return NotFound();
+
+        var author = await _valuationService.GetAuthorAsync(id);
+        if (author != User.Identity!.Name) 
+        {
+            return Forbid();
+        }
 
         var result = await _valuationService.GetResultAsync(id);
         if (result == null) return NotFound();

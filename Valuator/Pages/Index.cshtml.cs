@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Valuator.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Valuator.Pages;
 
+[Authorize]
 public class IndexModel : PageModel
 {
     private readonly ILogger<IndexModel> _logger;
@@ -30,7 +32,9 @@ public class IndexModel : PageModel
         try
         {
             _logger.LogDebug("Evaluating text: {Text} for country: {Country}", text, country);
-            string id = await _valuationService.EvaluateAsync(text, country);
+            string username = User.Identity!.Name!;
+
+            string id = await _valuationService.EvaluateAsync(text, country, username); 
             return RedirectToPage("Summary", new { id });
         }
         catch (Exception ex)

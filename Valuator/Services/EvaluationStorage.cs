@@ -12,6 +12,11 @@ public interface IEvaluationStorage
     Task<string?> GetTextAsync(string id);
     Task<double?> GetRankAsync(string id);
     Task<double?> GetSimilarityAsync(string id);
+
+    Task SaveUserAsync(string username, string password);
+    Task SaveAuthorAsync(string textId, string username);
+    Task<string?> GetAuthorAsync(string textId);
+    Task<bool> UserExistsAsync(string username);
 }
 
 public class RedisEvaluationStorage : IEvaluationStorage
@@ -22,12 +27,16 @@ public class RedisEvaluationStorage : IEvaluationStorage
     private readonly IDatabase _asiaDb;
     private const string AllTextsKey = "ALL_TEXTS";
 
-    public RedisEvaluationStorage()
+    public RedisEvaluationStorage(
+        IConnectionMultiplexer mainConn,
+        IConnectionMultiplexer ruConn,
+        IConnectionMultiplexer euConn,
+        IConnectionMultiplexer asiaConn)
     {
-        _mainDb = ConnectionMultiplexer.Connect(Environment.GetEnvironmentVariable("DB_MAIN") ?? "localhost:6379").GetDatabase();
-        _ruDb = ConnectionMultiplexer.Connect(Environment.GetEnvironmentVariable("DB_RU") ?? "localhost:6379").GetDatabase();
-        _euDb = ConnectionMultiplexer.Connect(Environment.GetEnvironmentVariable("DB_EU") ?? "localhost:6379").GetDatabase();
-        _asiaDb = ConnectionMultiplexer.Connect(Environment.GetEnvironmentVariable("DB_ASIA") ?? "localhost:6379").GetDatabase();
+        _mainDb = mainConn.GetDatabase();
+        _ruDb = ruConn.GetDatabase();
+        _euDb = euConn.GetDatabase();
+        _asiaDb = asiaConn.GetDatabase();
     }
 
     private string GetRegion(string country) => country switch
@@ -104,5 +113,25 @@ public class RedisEvaluationStorage : IEvaluationStorage
     {
         var shardDb = GetDbByRegion(GetRegion(country));
         await shardDb.SetAddAsync(AllTextsKey, text);
+    }
+
+    public async Task SaveUserAsync(string username, string password)
+    {
+        await _mainDb.StringSetAsync($"USER-{username}", password);
+    }
+
+    public async Task SaveAuthorAsync(string textId, string username)
+    {
+        await _mainDb.StringSetAsync($"AUTHOR-{textId}", username);
+    }
+
+    public async Task<string?> GetAuthorAsync(string textId)
+    {
+        return await _mainDb.StringGetAsync($"AUTHOR-{textId}");
+    }
+
+    public async Task<bool> UserExistsAsync(string username)
+    {
+        return await _mainDb.KeyExistsAsync($"USER-{username}");
     }
 }

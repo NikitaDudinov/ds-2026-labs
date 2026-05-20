@@ -11,8 +11,13 @@ class Program
     {
         Console.WriteLine("EventsLogger starting...");
 
-        var factory = new ConnectionFactory { HostName = "valuator-rabbitmq" };
-        
+        var factory = new ConnectionFactory
+        {
+            HostName = Environment.GetEnvironmentVariable("RABBIT_HOST") ?? "valuator-rabbitmq",
+            UserName = Environment.GetEnvironmentVariable("RABBIT_USER") ?? "guest",
+            Password = Environment.GetEnvironmentVariable("RABBIT_PASSWORD") ?? "guest"
+        };
+
         await using var connection = await factory.CreateConnectionAsync();
         await using var channel = await connection.CreateChannelAsync();
 

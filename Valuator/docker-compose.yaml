@@ -11,6 +11,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
@@ -20,6 +22,8 @@ services:
       - DB_ASIA=redis-asia:6379
     networks:
       - valuator-network
+    volumes:
+      - shared-keys:/root/.aspnet/DataProtection-Keys
 
   app2:
     build: .
@@ -31,6 +35,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
@@ -40,6 +46,8 @@ services:
       - DB_ASIA=redis-asia:6379
     networks:
       - valuator-network
+    volumes:
+      - shared-keys:/root/.aspnet/DataProtection-Keys
 
   nginx:
     image: nginx:latest
@@ -58,8 +66,9 @@ services:
   redis-main:
     image: redis:latest
     container_name: valuator-redis-main
+    command: redis-server --requirepass ${REDIS_MAIN_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_MAIN_PASSWORD}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -69,8 +78,9 @@ services:
   redis-ru:
     image: redis:latest
     container_name: valuator-redis-ru
+    command: redis-server --requirepass ${REDIS_RU_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_RU_PASSWORD}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -80,8 +90,9 @@ services:
   redis-eu:
     image: redis:latest
     container_name: valuator-redis-eu
+    command: redis-server --requirepass ${REDIS_EU_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_EU_PASSWORD}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -91,8 +102,9 @@ services:
   redis-asia:
     image: redis:latest
     container_name: valuator-redis-asia
+    command: redis-server --requirepass ${REDIS_ASIA_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_ASIA_PASSWORD}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -105,6 +117,9 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBIT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBIT_PASSWORD}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
@@ -122,6 +137,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       - DB_MAIN=redis-main:6379
       - DB_RU=redis-ru:6379
@@ -139,6 +156,8 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+    env_file:
+      - .env
     deploy:
       replicas: 2
     networks:
@@ -160,3 +179,6 @@ services:
 networks:
   valuator-network:
     driver: bridge
+
+volumes:
+  shared-keys:

@@ -20,10 +20,20 @@ class Program
         Console.WriteLine("RankCalculator Worker started");
         HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("apikey", "my_super_secret_api_key");
 
-        var mainDb = await ConnectionMultiplexer.ConnectAsync(Environment.GetEnvironmentVariable("DB_MAIN") ?? "localhost:6379");
-        var ruDb = await ConnectionMultiplexer.ConnectAsync(Environment.GetEnvironmentVariable("DB_RU") ?? "localhost:6379");
-        var euDb = await ConnectionMultiplexer.ConnectAsync(Environment.GetEnvironmentVariable("DB_EU") ?? "localhost:6379");
-        var asiaDb = await ConnectionMultiplexer.ConnectAsync(Environment.GetEnvironmentVariable("DB_ASIA") ?? "localhost:6379");
+        string mainPassword = Environment.GetEnvironmentVariable("REDIS_MAIN_PASSWORD") ?? "";
+        string ruPassword = Environment.GetEnvironmentVariable("REDIS_RU_PASSWORD") ?? "";
+        string euPassword = Environment.GetEnvironmentVariable("REDIS_EU_PASSWORD") ?? "";
+        string asiaPassword = Environment.GetEnvironmentVariable("REDIS_ASIA_PASSWORD") ?? "";
+
+        string mainUrl = Environment.GetEnvironmentVariable("DB_MAIN") ?? "localhost:6379";
+        string ruUrl = Environment.GetEnvironmentVariable("DB_RU") ?? "localhost:6379";
+        string euUrl = Environment.GetEnvironmentVariable("DB_EU") ?? "localhost:6379";
+        string asiaUrl = Environment.GetEnvironmentVariable("DB_ASIA") ?? "localhost:6379";
+
+        var mainDb = await ConnectionMultiplexer.ConnectAsync($"{mainUrl},password={mainPassword}");
+        var ruDb = await ConnectionMultiplexer.ConnectAsync($"{ruUrl},password={ruPassword}");
+        var euDb = await ConnectionMultiplexer.ConnectAsync($"{euUrl},password={euPassword}");
+        var asiaDb = await ConnectionMultiplexer.ConnectAsync($"{asiaUrl},password={asiaPassword}");
 
         var dbMain = mainDb.GetDatabase();
         var dbs = new Dictionary<string, IDatabase>
@@ -33,7 +43,12 @@ class Program
             { "ASIA", asiaDb.GetDatabase() }
         };
 
-        var factory = new ConnectionFactory { HostName = "valuator-rabbitmq" };
+        var factory = new ConnectionFactory
+        {
+             HostName = Environment.GetEnvironmentVariable("RABBIT_HOST") ?? "valuator-rabbitmq",
+             UserName = Environment.GetEnvironmentVariable("RABBIT_USER") ?? "guest",
+             Password = Environment.GetEnvironmentVariable("RABBIT_PASSWORD") ?? "guest"
+        };
         await using var connection = await factory.CreateConnectionAsync();
         await using var channel = await connection.CreateChannelAsync();
 
